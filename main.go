@@ -19,6 +19,7 @@ var userAgents = []string {
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.3",
 }
 
+// function to select a random user agent from the list to avoid getting blacklisted or overloading the site with requests from one user agent
 func randomUserAgent() string {
 	rand.New(rand.NewSource(time.Now().Unix()))
 	randNum := rand.Int() % len(userAgents)
@@ -28,40 +29,45 @@ func randomUserAgent() string {
 // function that will take the http response and convert it to a readable document
 func discoverLinks(response *http.Response, baseURL string) []string {
 	if response != nil {
+		// set a variable containing the readable doc from the response body
 		doc, _ := goquery.NewDocumentFromReader(response.Body)
+		// build a slice of strings for the urls we find in doc
 		foundUrls := []string{}
 		if doc != nil {
-			// find all links in the html of the doc, then select the href which contains the link we need
+			// find all links in the html of the doc, then select the href and append it to foundUrls
 			doc.Find("a").Each(func(i int, s *goquery.Selection) {
 				res, _ := s.Attr("href")
 				foundUrls = append(foundUrls, res)
 			})
-		} 
+		}
+		// return the slice of urls
 		return foundUrls
 
 	} else {
+		// return an empty string
 		return []string{}
 	}
-		
+
 	}
 
 
-// function to make requests
+// function to make http requests
 func getRequest(targetURL string)(*http.Response, error) {
 	client := &http.Client{}
 
 	req,_ := http.NewRequest("GET", targetURL, nil)
-
+	// set the user-agent header as a random user agent
 	req.Header.Set("User-Agent", randomUserAgent())
 
 	res, err := client.Do(req)
 		if err != nil {
 			return nil, err
-		} else { 
+		} else {
 			return res, nil
 		}
 }
 
+// function to check the url and reformat it if necessary with the baseUrl and href
 func checkRelative(href string, baseUrl string) string {
 	if strings.HasPrefix(href, "/") {
 		// return a formatted string
@@ -71,6 +77,7 @@ func checkRelative(href string, baseUrl string) string {
 	}
 }
 
+// function to check the format of urls and parse them, then ensure that they're from the right host
 func resolveRelativeLinks(href string, baseUrl string)(bool, string) {
 	resultHref := checkRelative(href, baseUrl)
 	baseParse, _ := url.Parse(baseUrl)
@@ -95,7 +102,7 @@ func Crawl(targetURL string, baseURL string) []string {
 	tokens <- struct{}{}
 	// variable resp contains body of the response received from of getRequest()
 	resp, _ := getRequest(targetURL)
-	// return the token after the request is made 
+	// return the token after the request is made
 	<-tokens
 	// variable links contains the links which are the result of running the request response through discoverLinks()
 	links := discoverLinks(resp, baseURL)
